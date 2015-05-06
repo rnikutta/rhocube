@@ -1,7 +1,7 @@
 """Model classes for 3D density distribution."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2015-04-27"
+__version__ = "2015-05-02"
 
 import numpy as N
 
@@ -11,13 +11,13 @@ import numpy as N
 
 class TruncatedNormalShell:
 
-    def __init__(self,r,width,clip=(0.,1.),weight=1.):
+    def __init__(self,r,width,clip=(0.,1.),offsets=(0.,0.),weight=1.):
         
         """Truncated Normal Shell
 
         A spherical shell with radius 'r', and Gaussian density
         fall-off from r. The width of the Normal is 'width'. The PDF
-        of the Normal is trauncated at 'clip' values.
+        of the Normal is truncated at 'clip' values.
         
         Parameters:
         -----------
@@ -31,21 +31,37 @@ class TruncatedNormalShell:
         clip : 2-tuple of floats
            Where to clip the Gaussian left and right. Default is (0,1).
 
+        offsets : 2-tuple of floats
+           x and y offsets of the shall center from (0.,0). Positive
+           values are to the right and up, negative to the left and
+           down. In units if unity (remember that the image is within
+           [-1,1]. Default offsets: (0.,0.)
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one shell, and wish to distribute different
+           amounts of mass inside each one.
+
         """
 
         self.r = r
         self.width = width
         self.clipa, self.clipb = clip
+        self.deltax, self.deltay = offsets
         self.weight = weight
 
         self.sanity()
 
+#        self.parameters = {'r',)
 
     def __call__(self,x,y,z):
 
         """Return density rho at (x,y,z)"""
 
-        self.rho = self.get_rho_in_voxel(x,y,z)
+#        self.rho = self.get_rho_in_voxel(x,y,z)
+        self.rho = self.get_rho(x,y,z)
         self.normalize()
 
 
@@ -63,29 +79,105 @@ class TruncatedNormalShell:
         self.rho /= self.mass
 
     
-    def get_rho_in_voxel(self,x,y,z):
+    def get_rho(self,x,y,z):
 
-        def get_pdf(x):
+        r = get_r((x-self.deltax,y-self.deltay,z),mode=2)  # mode=1,2 are fast, 3,4are slow
 
-            from scipy.stats import truncnorm
+        return self.get_pdf(r)
 
-            # Because of the non-standard way that Scipy defines
-            # distributions, we compute the shape parameters for a
-            # truncated Normal, with mean mu, std-deviation sigma, and
-            # clipped left and right at clip_a and clip_b.
-            mu, sig, clipa, clipb = self.r, self.width, self.clipa, self.clipb
-            a, b = (clipa - mu) / sig, (clipb - mu) / sig
-            rv = truncnorm(a, b, loc=mu, scale=sig)
-            pdf = rv.pdf(x)
 
-            return pdf
+    def get_pdf(self,x):
 
-        r = get_r((x,y,z),mode=2)  # mode=1,2,3 are fast, 4,5 are slow
+        from scipy.stats import truncnorm
 
-        return get_pdf(r)
+        # Because of the non-standard way that Scipy defines
+        # distributions, we compute the shape parameters for a
+        # truncated Normal, with mean mu, std-deviation sigma, and
+        # clipped left and right at clipa and clipb.
+        mu, sig, clipa, clipb = self.r, self.width, self.clipa, self.clipb
+        a, b = (clipa - mu) / sig, (clipb - mu) / sig
+        rv = truncnorm(a, b, loc=mu, scale=sig)
+        pdf = rv.pdf(x)
+
+        return pdf
 
 
 class HardEdgeShell:
+
+    def __init__(self,rin,width,offsets=(0.,0.),weight=1.):
+        
+        """Truncated Normal Shell
+
+        A spherical shell with radius 'r', and Gaussian density
+        fall-off from r. The width of the Normal is 'width'. The PDF
+        of the Normal is truncated at 'clip' values.
+        
+        Parameters:
+        -----------
+        rin : float
+           Radius at which the shell is centered, in fractions of
+           unity, i.e. between 0 and 1.
+
+        width : float
+           Thickness of the shell, in same units as r.
+
+        offsets : 2-tuple of floats
+           x and y offsets of the shall center from (0.,0). Positive
+           values are to the right and up, negative to the left and
+           down. In units if unity (remember that the image is within
+           [-1,1]. Default offsets: (0.,0.)
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one shell, and wish to distribute different
+           amounts of mass inside each one.
+
+        """
+
+        self.rin = rin
+        self.width = width
+        self.rout = self.rin + self.width
+        self.deltax, self.deltay = offsets
+        self.weight = weight
+
+        self.sanity()
+
+#        self.parameters = {'r',)
+
+    def __call__(self,x,y,z):
+
+        """Return density rho at (x,y,z)"""
+
+#        self.rho = self.get_rho_in_voxel(x,y,z)
+        self.rho = self.get_rho(x,y,z)
+        self.normalize()
+
+
+    def sanity(self):
+
+        assert (self.width > 0.)
+
+
+    def normalize(self):
+
+        self.mass = self.rho.sum() / self.weight
+        self.rho /= self.mass
+
+    
+    def get_rho(self,x,y,z):
+
+        r = get_r((x-self.deltax,y-self.deltay,z),mode=2)  # mode=1,2 are fast, 3,4are slow
+        co = (r >= self.rin) & (r <= self.rout)
+        res = N.zeros(r.shape)
+        res[co] = 1.
+
+        return res
+
+
+
+class HardEdgeShell2:
 
 # TODO: write this class
 
