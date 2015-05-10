@@ -1,17 +1,283 @@
 """Model classes for 3D density distribution."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2015-05-02"
+__version__ = "2015-05-10"
 
 import numpy as N
+
+from numpy import cross,eye,dot
+from scipy.linalg import expm3,norm
 
 #######################################
 # Models for 3D density distributions #
 #######################################
 
-class TruncatedNormalShell:
 
-    def __init__(self,r,width,clip=(0.,1.),offsets=(0.,0.),weight=1.):
+class Cube3D:
+
+    """Generic Cube of nx*ny*nz pixels. Models should inherit from this
+    class, as it provides common members and methods,
+    e.g. normalize(), set_rho(), shift(), and rotate().
+    """
+
+    def __init__(self,X,Y,Z):
+
+        """Initialize a 3D cube of voxels using X,Y,Z corrdinate arrays (each
+        a 3D array).
+        """
+
+        self.X, self.Y, self.Z = X, Y, Z
+        self.X2 = self.X * self.X
+        self.Y2 = self.Y * self.Y
+        self.Z2 = self.Z * self.Z
+        self.rho = self.set_rho(val=0.)
+
+
+    def set_rho(self,val=0.):
+
+        """(Re)set all voxels in self.rho (3D cube) to 'val' (default: 0.)
+        """
+
+        self.rho = val*N.ones(self.X.shape)
+
+
+    def normalize(self):
+
+        """Normalize the sum of all voxel values to self.weight.
+        """
+
+        self.mass = self.rho.sum() / self.weight
+        self.rho /= self.mass
+
+
+    def shift(self):
+
+        """Shift density distribution by xoff and yoff. If rotation is needed,
+        rotate first, then shift.
+        """
+
+        if abs(self.xoff) > 0:
+            self.X -= self.xoff
+
+        if abs(self.yoff) > 0:
+            self.Y -= self.yoff
+
+
+    def rotate2d(self,A,B,theta):  # A, B are coordinate arrays (can be 3D); theta in radians
+
+        """Intrinsic rotation in 2D.
+
+        Works with entire coordinate arrays (which can be 3D for
+        instance). theta is rotation angle in radians.
+        """
+
+        cos_ = N.cos(theta)
+        sin_ = N.sin(theta)
+        Ap = A*cos_ - B*sin_
+        Bp = A*sin_ + B*cos_
+
+        return Ap, Bp
+
+
+    def rotate3d(self):
+        
+        """Rotate the unshifted rho (i.e. one that's centered on (0,0) by
+        angles tiltx and tiltz. tilty is only needed for density
+        distributions that are not axisymmetric around the y axis,
+        maybe we'll implement such distros later.
+        """
+
+        if self.tiltx > 0.:
+
+            # when rotating about the x-axis (pointing to the right in the image), the X coordinates are invariant.
+            self.Y, self.Z = self.rotate2d(self.Y,self.Z,N.radians(self.tiltx))
+
+        if self.tiltz > 0.:
+
+            # when rotating about the z-axis (pointing towards observer), the Z coordinates are invariant.
+            self.X, self.Y = self.rotate2d(self.X,self.Y,N.radians(self.tiltz))
+
+
+
+class ConstantDensityShell(Cube3D):
+
+    # supply X,Y,Z to init instead of the param values. SUpply the param values instead to call (which may use update)
+
+    def __init__(self,X,Y,Z):
+        
+        """Truncated Normal Shell
+
+        A spherical shell with radius 'r', and Gaussian density
+        fall-off from r. The width of the Normal is 'width'. The PDF
+        of the Normal is truncated at 'clip' values.
+        
+        Parameters:
+        -----------
+        rin : float
+           Radius at which the shell is centered, in fractions of
+           unity, i.e. between 0 and 1.
+
+        width : float
+           Thickness of the shell, in same units as r.
+
+        xoff, yoff : floats
+           x and y offsets of the shell center from (0,0). Positive
+           values are to the right and up, negative to the left and
+           down. In units if unity (remember that the image is within
+           [-1,1]. Defaults: xoff = yoff = 0.
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one component, and wish to distribute different
+           amounts of mass inside each one. Default: weight=1.
+
+        """
+
+        Cube3D.__init__(self,X,Y,Z)
+
+
+    def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1):
+
+        """Return density rho at (x,y,z)"""
+
+        self.rin = rin
+        self.rout = rout
+        self.xoff = xoff
+        self.yoff = yoff
+        self.weight = weight
+
+        self.sanity()
+
+        self.shift()
+
+        self.get_rho()  # get_rho should set self.rho (3D)
+        self.normalize()
+
+        return self.rho
+
+
+    def sanity(self):
+
+        """Sanity checks for constant density-edge shell.
+        """
+
+        assert (0. < self.rin < self.rout)  # this automatically asserts that the shell thickness is finite and positive
+
+
+    def get_rho(self):
+
+        """Compute rho(x,y,z) in every voxel.
+        """
+
+        r = get_r((self.X,self.Y,self.Z),mode=2)  # mode=1,2 are fast, 3,4are slow
+        co = (r >= self.rin) & (r <= self.rout)
+        self.set_rho(val=0.)  # default is 0.
+        self.rho[co] = 1.
+
+
+class ConstantDensityTorus(Cube3D):
+
+    """Torus as a ring with circular cross-section.
+
+    Parameters:
+    -----------
+    r : float
+       Torus radius
+
+    rcross : float
+       Torus ring cross-section radius
+
+    xoff, yoff : floats
+        x and y offsets of the torus center from (0,0). Positive
+        values are to the right and up, negative to the left and
+        down. In units if unity (remember that the image is within
+        [-1,1]. Defaults: xoff = yoff = 0.
+
+    tiltx, tiltz : floats
+        The tilt angles along the x and z axes, respectively. Looking
+        at the plane of the sky, x is to the right, y is up, and z is
+        toward the observer. Thus tiltx tilts the torus axis towards
+        and from the observer, and tiltz tilts the torus axis in the
+        plane of the sky. tiltx = tiltz = 0 results in the torus seen
+        edge-on and its axis pointing up in the image. tiltx = 90 &
+        tiltz = 0 points the torus axis towards the observer (pole-on
+        view).
+
+    weight : float
+        Normalize the total (relative) mass contained in the torus to
+        this value. The total mass is the sum of rho over all pixels
+        (in 3D). This is useful if you e.g. want to have more than one
+        component, and wish to distribute different amounts of mass
+        inside each one. Default: weight=1.
+
+    """
+
+    def __init__(self,X,Y,Z):
+
+        Cube3D.__init__(self,X,Y,Z)
+
+
+    def __call__(self,r,rcross,xoff=0.,yoff=0.,tiltx=0.,tiltz=0,weight=1.):
+
+        """Return density rho at (x,y,z)"""
+
+        self.r = r
+        self.rcross = rcross
+        self.xoff = xoff
+        self.yoff = yoff
+        self.tiltx = tiltx
+        self.tiltz = tiltz
+        self.weight = weight
+
+        self.sanity()
+
+        self.shift()
+        self.rotate3d()
+
+        self.get_rho()
+        self.normalize()
+
+        return self.rho
+
+
+    def sanity(self):
+
+        assert (0. < self.rcross <= self.r)
+        
+#        assert (0. <= self.tiltx <= 90.)
+        assert (0. <= self.tiltx <= 180.)
+        assert (0. <= self.tiltz <= 180.)
+
+
+    def get_rho(self):
+
+        # A point (x,y,z) is inside the torus when:
+        #
+        #    (x^2 + y^2 + z^2 + r^2 - rcross^2)^2 - 4 * r^2 * (x^2 + z^2) < 0
+
+
+        # To speed up computation a bit (the following expression are used twice each in the formula below)
+        r2 = self.r**2
+        X2 = self.X**2
+        Z2 = self.Z**2
+        co = (X2 + self.Y**2 + Z2 + r2 - self.rcross**2)**2 - 4 * r2 * (X2 + Z2) < 0
+#        co = (self.X**2 + self.Y**2 + self.Z**2 + r2 - self.rcross**2)**2 - 4 * r2 * (self.X**2 + self.Z**2) < 0
+        
+        self.set_rho(val=0.)  # default is 0.
+        self.rho[co] = 1.
+
+
+class TruncatedNormalShell(Cube3D):
+
+    # all models should inherit from Cube3D; the models only provide what's unique to them (e.g. get_rho(), sanity())
+
+    # self.get_rho() should compute and set self.rho (3D)
+    # __call__(*args) should return self.rho (3D)
+
+
+    def __init__(self,X,Y,Z):
         
         """Truncated Normal Shell
 
@@ -31,62 +297,73 @@ class TruncatedNormalShell:
         clip : 2-tuple of floats
            Where to clip the Gaussian left and right. Default is (0,1).
 
-        offsets : 2-tuple of floats
-           x and y offsets of the shall center from (0.,0). Positive
+        xoff, yoff : floats
+           x and y offsets of the shell center from (0,0). Positive
            values are to the right and up, negative to the left and
            down. In units if unity (remember that the image is within
-           [-1,1]. Default offsets: (0.,0.)
+           [-1,1]. Defaults: xoff = yoff = 0.
 
         weight : float
            Normalize the total (relative) mass contained in the shell
            to this value. The total mass is the sum of rho over all
            pixels (in 3D). This is useful if you e.g. want to have
-           more than one shell, and wish to distribute different
+           more than one component, and wish to distribute different
            amounts of mass inside each one.
 
         """
 
+        Cube3D.__init__(self,X,Y,Z)
+
+
+    def __call__(self,r,width,clipa=0.,clipb=1.,xoff=0.,yoff=0.,weight=1.):
+
+        """Return density rho at (x,y,z)"""
+
         self.r = r
         self.width = width
-        self.clipa, self.clipb = clip
-        self.deltax, self.deltay = offsets
+        self.clipa = clipa
+        self.clipb = clipb
+        self.xoff = xoff
+        self.yoff = yoff
         self.weight = weight
 
         self.sanity()
 
-#        self.parameters = {'r',)
+        self.shift()
 
-    def __call__(self,x,y,z):
-
-        """Return density rho at (x,y,z)"""
-
-#        self.rho = self.get_rho_in_voxel(x,y,z)
-        self.rho = self.get_rho(x,y,z)
+        self.get_rho()
         self.normalize()
+
+        return self.rho
 
 
     def sanity(self):
 
-        assert (self.clipa >= 0.)
-        assert (self.clipb <= 1.)
-        assert (self.clipb > self.clipa)
-        assert (self.width >= 0.)
+        # CAREFUL ASSERTIONS
+        # lower cut clipa must be smaller than r
+        # lower cut clipa can be as small as zero
+        # upper cut clipb can be as low as r
+        # upper cub clipb can be in principle larger than unity (but we'll default to 1.0)
+        # width must be a positive number
+        assert (0. <= self.clipa < self.r <= self.clipb)  # radial distance relations that must hold: 0. <= clipa < r < clipb [<= 1.]
+        assert (self.width > 0.)
 
 
-    def normalize(self):
+    def get_rho(self):
 
-        self.mass = self.rho.sum() / self.weight
-        self.rho /= self.mass
+        """Compute rho(x,y,z) in every voxel.
+        """
 
-    
-    def get_rho(self,x,y,z):
+        r = get_r((self.X,self.Y,self.Z),mode=2)  # mode=1,2 are fast, 3,4are slow
 
-        r = get_r((x-self.deltax,y-self.deltay,z),mode=2)  # mode=1,2 are fast, 3,4are slow
-
-        return self.get_pdf(r)
+        self.rho = self.get_pdf(r)
 
 
     def get_pdf(self,x):
+
+        """Distribution of density according to a Gaussian with (mu,sig) =
+        (r,width).
+        """
 
         from scipy.stats import truncnorm
 
@@ -100,114 +377,6 @@ class TruncatedNormalShell:
         pdf = rv.pdf(x)
 
         return pdf
-
-
-class HardEdgeShell:
-
-    def __init__(self,rin,width,offsets=(0.,0.),weight=1.):
-        
-        """Truncated Normal Shell
-
-        A spherical shell with radius 'r', and Gaussian density
-        fall-off from r. The width of the Normal is 'width'. The PDF
-        of the Normal is truncated at 'clip' values.
-        
-        Parameters:
-        -----------
-        rin : float
-           Radius at which the shell is centered, in fractions of
-           unity, i.e. between 0 and 1.
-
-        width : float
-           Thickness of the shell, in same units as r.
-
-        offsets : 2-tuple of floats
-           x and y offsets of the shall center from (0.,0). Positive
-           values are to the right and up, negative to the left and
-           down. In units if unity (remember that the image is within
-           [-1,1]. Default offsets: (0.,0.)
-
-        weight : float
-           Normalize the total (relative) mass contained in the shell
-           to this value. The total mass is the sum of rho over all
-           pixels (in 3D). This is useful if you e.g. want to have
-           more than one shell, and wish to distribute different
-           amounts of mass inside each one.
-
-        """
-
-        self.rin = rin
-        self.width = width
-        self.rout = self.rin + self.width
-        self.deltax, self.deltay = offsets
-        self.weight = weight
-
-        self.sanity()
-
-#        self.parameters = {'r',)
-
-    def __call__(self,x,y,z):
-
-        """Return density rho at (x,y,z)"""
-
-#        self.rho = self.get_rho_in_voxel(x,y,z)
-        self.rho = self.get_rho(x,y,z)
-        self.normalize()
-
-
-    def sanity(self):
-
-        assert (self.width > 0.)
-
-
-    def normalize(self):
-
-        self.mass = self.rho.sum() / self.weight
-        self.rho /= self.mass
-
-    
-    def get_rho(self,x,y,z):
-
-        r = get_r((x-self.deltax,y-self.deltay,z),mode=2)  # mode=1,2 are fast, 3,4are slow
-        co = (r >= self.rin) & (r <= self.rout)
-        res = N.zeros(r.shape)
-        res[co] = 1.
-
-        return res
-
-
-
-class HardEdgeShell2:
-
-# TODO: write this class
-
-    def __init__(self,r,dr):
-        
-        """Hard Edge Shell
-        
-        Parameters:
-        -----------
-        r : float
-           Outer radius of the shell, in fractions of unity, i.e. between 0 and 1.
-
-        dr : float
-           Radial thickness of the shell, in same units as r.
-
-        """
-        
-        self.rout, self.dr = r, dr
-        self.sanity()
-        self.rin = self.rout - self.dr
-
-    def sanity(self):
-
-        assert (self.rout > 0. and self.rout <= 1.), "Shell radius must be within (0,1.]"
-        assert (self.dr > 0. and self.dr <= 1.), "Shell thickness must be positive and at most = r"
-
-
-    def get_rho(self,x,y,z):
-
-        r, theta, phi = cartesian2spherical(x,y,z)
 
 
 ####################
@@ -238,7 +407,7 @@ def mirror(a,ax=-1):
     pass  # write it
 
 
-def get_r(coords,mode=2): # mode=1):
+def get_r(coords,mode=2):
 
     """Get Euclidean distance r from Cartesian coordinates x,y,[[z],..]
 
