@@ -1,7 +1,7 @@
 """Model classes for 3D density distribution."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2015-05-10"
+__version__ = "2015-05-11"
 
 import numpy as N
 
@@ -28,7 +28,7 @@ class Cube3D:
 
         self.X, self.Y, self.Z = X, Y, Z
         self.X2 = self.X * self.X
-        self.Y2 = self.Y * self.Y
+#        self.Y2 = self.Y * self.Y
         self.Z2 = self.Z * self.Z
         self.rho = self.set_rho(val=0.)
 
@@ -53,7 +53,7 @@ class Cube3D:
     def shift(self):
 
         """Shift density distribution by xoff and yoff. If rotation is needed,
-        rotate first, then shift.
+        shift first, then rotate.
         """
 
         if abs(self.xoff) > 0:
@@ -63,12 +63,38 @@ class Cube3D:
             self.Y -= self.yoff
 
 
-    def rotate2d(self,A,B,theta):  # A, B are coordinate arrays (can be 3D); theta in radians
+    def rotate2d(self,A,B,theta):
 
         """Intrinsic rotation in 2D.
 
-        Works with entire coordinate arrays (which can be 3D for
-        instance). theta is rotation angle in radians.
+        For rotation in 3D about one of the principal axes, only the
+        coordinates of the two other axes are needed (the coordinates
+        along the rotation axis won't be affected.
+
+        Parameters:
+        -----------
+        A, B : {floats, float arrays}
+            A, B are coordinate arrays (which can be 3D arrays) of the
+            two axes affected by the rotation to be performed. E.g. if
+            the rotation is about the x-axis, only the y and z
+            coordinates will be affected, and thus A and B should be
+            arrays (of any shape) containing the y and z coordinates,
+            etc.
+
+        theta : float
+            Rotation angle in radians.
+
+        Example:
+        --------
+
+        Given x, y, z coordinates, rotate the coordinate system by 30
+        degrees about the x-axis:
+
+            x, y, z = N.linspace(-1,1,11), N.linspace(0,10,21), N.linspace(3.5,4.5,15)
+            X, Y, Z = N.meshgrid(x,y,z)            # 3D array cubes of x, y, values at every voxel
+            Xp = X                                 # Xp (X-prime) is invariant
+            Yp, Zp = rotate2d(Y,Z,N.radians(30))   # rotated Y and Z coordinates
+
         """
 
         cos_ = N.cos(theta)
@@ -96,7 +122,6 @@ class Cube3D:
 
             # when rotating about the z-axis (pointing towards observer), the Z coordinates are invariant.
             self.X, self.Y = self.rotate2d(self.X,self.Y,N.radians(self.tiltz))
-
 
 
 class ConstantDensityShell(Cube3D):
