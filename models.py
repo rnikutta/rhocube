@@ -26,12 +26,13 @@ class Cube3D:
         a 3D array).
         """
 
-        self.X, self.Y, self.Z = X, Y, Z
+#        self.X, self.Y, self.Z = X, Y, Z
+        self.X, self.Y, self.Z = X.copy(), Y.copy(), Z.copy()
         self.X2 = self.X * self.X
 #        self.Y2 = self.Y * self.Y
         self.Z2 = self.Z * self.Z
         self.rho = self.set_rho(val=0.)
-
+        
 
     def set_rho(self,val=0.):
 
