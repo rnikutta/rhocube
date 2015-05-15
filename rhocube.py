@@ -1,7 +1,7 @@
 """Compute a model 3D density distribution, and 2D dz-integrated map."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2015-05-10"
+__version__ = "2015-05-15"
 
 import numpy as N
 import pyfits
@@ -183,7 +183,9 @@ class Cube:
             self.models.append(model)
 
 
-        self.allmap = N.sum([m.rhomap for m in self.models],axis=0)
+#        self.allmap = N.sum([m.rhomap for m in self.models],axis=0)
+        self.image = N.sum([m.rhomap for m in self.models],axis=0)
+        self.mask = (self.image > 0.)
 
 
     def __call__(self):
@@ -191,7 +193,46 @@ class Cube:
         """When called with parameters"""
 
 
+    def add_noise(self,type='gauss',mode='std',magnitude=0.1):
 
+        """Add random noise to final image.
+
+        Leaves self.image alone, and creates self.errimage (just the
+        errors image) and self.noisyimage (self.image +
+        self.errimage).
+
+        Parameters:
+        -----------
+        type : str
+            Noise statistic. Currently only 'gauss' is. implemented
+
+        mode : str
+            Use one of 'std', 'max', 'mean', 'median' of all non-zero
+            valued image pixels to compute the error amplitude.
+
+        magnitude : float
+            Scaling factor applied to the error amplitude (defined by
+            'mode'). The error image will be
+
+               error = magnitude * mode(image) * RND
+        
+            where RND is a random variate per pixel drawn from the
+            noise statistic defined by 'type'. The noisy image will be
+
+               noisyimage = error + image
+        """
+
+        self.rnd = N.random.randn
+        if type != 'gauss':
+            warnings.warn("Only 'gauss' implemented as noise type at the moment.")
+
+        assert (mode in ('std','max','median','mean'))
+
+        self.mag = magnitude
+        self.errmode = getattr(N,mode)
+        self.sig = self.mag * self.errmode(self.image[self.mask])
+        self.errimage = self.sig * self.rnd(*self.image.shape)
+        self.noisyimage = self.errimage + self.image
 
 
 
