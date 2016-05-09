@@ -155,7 +155,8 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 #latex        r'\sansmath'               # <- tricky! -- gotta actually tell tex to use!
 #latex    ] 
 
-    f, axes = p.subplots(2, 4, figsize=(10, 5), sharex=False, sharey=False,subplot_kw={'aspect':'auto'})
+#1    f, axes = p.subplots(2, 4, figsize=(10, 5), sharex=False, sharey=False,subplot_kw={'aspect':'auto'})
+    f, axes = p.subplots(3, 4, figsize=(12, 5), sharex=False, sharey=False,subplot_kw={'aspect':'auto'})
     print "axes = ", axes
     lw = 2.
     al = 0.4
@@ -185,6 +186,7 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     
     # IMAGE MAP MODEL
     ax10 = axes[1,0]
+#    ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
     ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
     center = (theta_best_map[4],theta_best_map[5])
     circ1 = p.Circle(center,theta_best_map[0],ec='k',fc='none',ls='solid',lw=0.7,alpha=0.5)
@@ -217,6 +219,13 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     ax10.set_yticklabels(ticklabels)
 
 
+    # IMAGE MED MODEL
+    ax10 = axes[2,0]
+#    ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
+    ax10.imshow(image2d_best_med,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
+
+
+    
     axorder = [(0,1),(0,2),(1,1),(1,2),(0,3)]
     
     for j,jax in enumerate(axorder):
@@ -272,7 +281,7 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
         
     f.subplots_adjust(left=0.065,right=0.98,top=0.94,bottom=0.1,hspace=0.3,wspace=0.3)
 
-    f.savefig('S61_posteriors_MAPmodel.pdf')
+    f.savefig('S61_posteriors_MAPMEDmodels.pdf')
 
     return cube_best_map,scale_best_map
 
@@ -463,14 +472,24 @@ def optimalscale(d,e,m):
        
        d   data fluxes
        e   data flux errors
-       m   model fluxes
+    m   model fluxes
     """
 
-    aux1 = N.sum(d*m/e**2.)
-    aux2 = N.sum(m**2./e**2.)
+#    print "d,m,e = ", d,m,e
+#    aux1 = N.sum(d*m/e**2.)
+#    aux2 = N.sum(m**2./e**2.)
+#    scale = aux1 / aux2
+
+    mask = d.mask
+
+
+    aux1 = N.sum(d[~mask]*m[~mask]/e[~mask]**2.)
+    aux2 = N.sum(m[~mask]**2./e[~mask]**2.)
     scale = aux1 / aux2
 
+    
     return scale
+
 
 def chi2(d,e,m):
     """Calculate chi2, given data fluxes d, their errors e, and model fluxes m.
@@ -515,8 +534,8 @@ def fit_S61_TNS_continuous(datafile='/home/robert/science/ownpapers/lbv-paper/da
              
     # ///// SET UP PRIORS
     eps = 0.001  # to avoid numerical armageddons
-    r = pymc.Uniform('r',0.2/factor,0.4/factor)  # r=mu of the Gaussian; values are in parsec, factor converts them to unit hypercube
-    width = pymc.Uniform('width',0.07/factor,(0.7/factor-r))#,value=0.05)  # width=sigma of the Gaussian
+    r = pymc.Uniform('r',0.2/factor,0.35/factor)  # r=mu of the Gaussian; values are in parsec, factor converts them to unit hypercube
+    width = pymc.Uniform('width',0.07/factor,(0.54/factor-r))#,value=0.05)  # width=sigma of the Gaussian
     clipa = pymc.Uniform('clipa',0.,r-eps)
     clipb = pymc.Uniform('clipb',r+eps,0.7/factor)
     # offsets drawn from narrow Gaussian, truncated at [-2,+2] pixels from (x,y)=(0,0)
@@ -534,15 +553,23 @@ def fit_S61_TNS_continuous(datafile='/home/robert/science/ownpapers/lbv-paper/da
 
         mod(r,width,clipa,clipb,xoff,yoff,1,1.)
         image = N.sum(mod.transform(mod.rho),axis=-1)
+#        print "image: ", image
+#        print "(image == 0).all() ", (image == 0).all()
+#        print "data2d: ", data2d
+
         image2d, dummy, scale = get_scale(image,data2d,sig2d, returnall=True)
 
         return image2d
+
+
+    
     
     # MCMC model
     modely = pymc.Normal('modely',mu=modeled_data,tau=1./sig2d**2,value=data2d,observed=True)
     model = pymc.Model([r,width,clipa,clipb,xoff,yoff,modely])
     M = pymc.MCMC(model)
 
+    
     # adaptive stepping methods, can lead to better convergence of MCMC chains
     for par in (r,width,clipa,clipb,xoff,yoff):
         M.use_step_method(pymc.AdaptiveMetropolis,[par],delay=100,shrink_if_necessary=True,greedy=False)
@@ -654,7 +681,7 @@ def get_scale(image,data2d,sig2d, returnall=False):
     image_masked = ma.MaskedArray(image.copy(),data2d.mask)
 
 #    print "image_masked.max(), image_masked.mean() = ", image_masked.max(), image_masked.mean() 
-    
+
     scale = optimalscale(data2d,sig2d,image_masked)
 
 #    print "scale = ", scale
