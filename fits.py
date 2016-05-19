@@ -130,9 +130,14 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 
     idx = N.argmin(chi2trace)
     theta_map = [v[idx] for v in tracesdict.values()]
-
+    print "theta_map = ", theta_map
+    
     bestvals, quantiles = get_stats(tracesdict,chi2trace,printtable=True)
+    print "bestvals =", bestvals
+    print "quantiles.items() = ", quantiles.items()
+
     medians = [v[1] for v in quantiles.values()]
+    print "medians = ", medians
 
     
     #    image2d_best, cube_best, scale_best, theta_best = S61_get_best_model(data,data2d,sig2d,tracesdict,chi2trace)
@@ -145,6 +150,13 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 
     fontsize = 12
     p.rcParams['legend.fontsize'] = fontsize
+    p.rcParams['axes.labelsize'] = fontsize
+    p.rcParams['axes.titlesize'] = fontsize
+    p.rcParams['text.fontsize'] =  fontsize-1
+    p.rcParams['legend.fontsize'] = fontsize
+    p.rcParams['xtick.labelsize'] = fontsize
+    p.rcParams['ytick.labelsize'] = fontsize
+    p.rcParams['font.family'] = 'sans-serif'
 #latex    # don't use Type 3 fonts (requirement by MNRAS); you'll need dvipng installed
 #latex    p.rcParams['ps.useafm'] = True
 #latex    p.rcParams['pdf.use14corefonts'] = True
@@ -155,27 +167,21 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 #latex        r'\sansmath'               # <- tricky! -- gotta actually tell tex to use!
 #latex    ] 
 
-#1    f, axes = p.subplots(2, 4, figsize=(10, 5), sharex=False, sharey=False,subplot_kw={'aspect':'auto'})
-    f, axes = p.subplots(3, 4, figsize=(12, 5), sharex=False, sharey=False,subplot_kw={'aspect':'auto'})
-    print "axes = ", axes
+    f, axes = p.subplots(3, 3, figsize=(8, 7), sharex=False, sharey=False)#,subplot_kw={'aspect':'auto'})
     lw = 2.
     al = 0.4
 
     cmap = p.cm.rainbow
     
     # IMAGE DATA
-#    ticks = (-1,-0.5,0,0.5,1.)
-#    ticklabels = ["%.1f" % (t*data.px2pc*data.npix/2.) for t in ticks]
-
     ticks = N.array((-1,-0.5,0,0.5,1.)) * (data.px2pc*data.npix/2.)
     ticklabels = ["%.1f" % t for t in ticks]
     extent = [ticks[0],ticks[-1],ticks[0],ticks[-1]]
 
     ax00 = axes[0,0]
-    print "ax00 = ", ax00
     ax00.imshow(data2d,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
-    ax00.text(0.05,0.9,'DATA',ha='left',transform=ax00.transAxes,color='k')
-    ax00.text(0.85,0.9,'(0)',ha='left',transform=ax00.transAxes,color='k')
+    ax00.text(0.04,0.9,'DATA',ha='left',transform=ax00.transAxes,color='k')
+    ax00.text(0.97,0.9,'(0)',ha='right',transform=ax00.transAxes,color='k')
     ax00.set_xlabel('x (pc)')
     ax00.set_ylabel('y (pc)')
     ax00.set_xticks(ticks)
@@ -186,7 +192,6 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     
     # IMAGE MAP MODEL
     ax10 = axes[1,0]
-#    ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
     ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
     center = (theta_best_map[4],theta_best_map[5])
     circ1 = p.Circle(center,theta_best_map[0],ec='k',fc='none',ls='solid',lw=0.7,alpha=0.5)
@@ -208,9 +213,8 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     ax10.set_yticks(ticks)
     ax10.set_yticklabels(ticklabels)
 
-
-    ax10.text(0.05,0.9,'MODEL',ha='left',transform=ax10.transAxes,color='k')
-    ax10.text(0.85,0.9,'(1)',ha='left',transform=ax10.transAxes,color='k')
+    ax10.text(0.04,0.9,'MAP MODEL',ha='left',transform=ax10.transAxes,color='k')
+    ax10.text(0.97,0.9,'(1)',ha='right',transform=ax10.transAxes,color='k')
     ax10.set_xlabel('x (pc)')
     ax10.set_ylabel('y (pc)')
     ax10.set_xticks(ticks)
@@ -220,19 +224,47 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 
 
     # IMAGE MED MODEL
-    ax10 = axes[2,0]
-#    ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
-    ax10.imshow(image2d_best_med,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
+    ax20 = axes[2,0]
+    ax20.imshow(image2d_best_med,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
 
+    center = (theta_best_med[4],theta_best_med[5])
+    circ1 = p.Circle(center,theta_best_med[0],ec='k',fc='none',ls='solid',lw=0.7,alpha=0.5)
+    circ2a = p.Circle(center,theta_best_med[0]+theta_best_med[1],ec='k',fc='none',ls='dashed',lw=0.7,alpha=0.5)
+    if theta_best_med[0]-theta_best_med[1] > 0:
+        circ2b = p.Circle(center,theta_best_med[0]-theta_best_med[1],ec='k',fc='none',ls='dashed',lw=0.7,alpha=0.5)
+    else:
+        circ2b = None
+        
+    circ3 = p.Circle(center,theta_best_med[3],ec='k',fc='none',ls='dotted',lw=0.7,alpha=0.5)
+    ax20.add_patch(circ1)
+    ax20.add_patch(circ2a)
+    if circ2b is not None:
+        ax20.add_patch(circ2b)
+
+    ax20.add_patch(circ3)
+    ax20.set_xticks(ticks)
+    ax20.set_xticklabels(ticklabels)
+    ax20.set_yticks(ticks)
+    ax20.set_yticklabels(ticklabels)
+
+
+    ax20.text(0.04,0.9,'MEDIAN MODEL',ha='left',transform=ax20.transAxes,color='k')
+    ax20.text(0.97,0.9,'(2)',ha='right',transform=ax20.transAxes,color='k')
+    ax20.set_xlabel('x (pc)')
+    ax20.set_ylabel('y (pc)')
+    ax20.set_xticks(ticks)
+    ax20.set_xticklabels(ticklabels)
+    ax20.set_yticks(ticks)
+    ax20.set_yticklabels(ticklabels)
 
     
-    axorder = [(0,1),(0,2),(1,1),(1,2),(0,3)]
+    axorder = [(0,1),(0,2),(1,1),(1,2),(2,1)]
     
     for j,jax in enumerate(axorder):
         print j, jax
 
         ax = axes[jax]
-        ax.text(0.85,0.9,'(%d)' % (j+2),ha='left',transform=ax.transAxes,color='k')
+        ax.text(0.97,0.9,'(%d)' % (j+3),ha='right',transform=ax.transAxes,color='k')
         var = vars[j]
         sample = df[var]
         bestval = sample[idx]
@@ -259,27 +291,29 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
             line.set_dashes(dashes)
 
             
-        if j in (0,2):
-            ax.set_ylabel('marginalized posteriors')
+        if j in (0,2,4):
+            ax.set_ylabel('margin. posteriors')
         if j == 4:
-            leg = ax.legend(loc=(0.04,-0.995),frameon=True)
+            leg = ax.legend(loc='center',bbox_to_anchor=(1.6,0.5),frameon=True)
             leg.legendPatch.set_alpha(0.7)
             leg.get_frame().set_edgecolor('0.3')
 
+        
         ax.set_xlabel(xlabels[j])
-
         ax.set_xlim(xmin=-0.01)
-
         fmt = '%g'
         ax.set_xlim(xmin=0.)
+        ax.set_aspect('auto')
+
         ax.xaxis.set_major_locator(LinearLocator(5))
         ax.xaxis.set_major_formatter(FormatStrFormatter(fmt))
         ax.yaxis.set_major_locator(LinearLocator(5))
-        ax.yaxis.set_major_formatter(FormatStrFormatter(fmt))
+#        ax.yaxis.set_major_formatter(FormatStrFormatter(fmt))
+        ax.yaxis.set_major_formatter(NullFormatter())
         
     axes[-1, -1].axis('off')
         
-    f.subplots_adjust(left=0.065,right=0.98,top=0.94,bottom=0.1,hspace=0.3,wspace=0.3)
+    f.subplots_adjust(left=0.05,right=0.98,top=0.96,bottom=0.1,hspace=0.4,wspace=0.1)
 
     f.savefig('S61_posteriors_MAPMEDmodels.pdf')
 
@@ -543,6 +577,13 @@ def fit_S61_TNS_continuous(datafile='/home/robert/science/ownpapers/lbv-paper/da
     yoff = pymc.TruncatedNormal('yoff',0,1./0.05**2,-2*px,2*px)
     # ///// END OF SETTING UP PRIORS
 
+#    r = pymc.Uniform('r',0.2/factor,0.35/factor,value=0.2/factor)  # r=mu of the Gaussian; values are in parsec, factor converts them to unit hypercube
+#    width = pymc.Uniform('width',0.07/factor,(0.54/factor-r),value=0.07/factor)#,value=0.05)  # width=sigma of the Gaussian
+#    clipa = pymc.Uniform('clipa',0.,r-eps,value=eps)
+#    clipb = pymc.Uniform('clipb',r+eps,0.7/factor,value=r+eps)
+#    # offsets drawn from narrow Gaussian, truncated at [-2,+2] pixels from (x,y)=(0,0)
+#    xoff = pymc.TruncatedNormal('xoff',0,1./0.05**2,-2*px,2*px)
+#    yoff = pymc.TruncatedNormal('yoff',0,1./0.05**2,-2*px,2*px)
 
     # model: truncated Gaussian shell
     mod = models.TruncatedNormalShell(npix,transform=Quad())  # Quad() will square ne before integration
@@ -551,8 +592,10 @@ def fit_S61_TNS_continuous(datafile='/home/robert/science/ownpapers/lbv-paper/da
     @pymc.deterministic()
     def modeled_data(r=r,width=width,clipa=clipa,clipb=clipb,xoff=xoff,yoff=yoff):
 
+#        print "In modeled_data; r,width,clipa,clipb,xoff,yoff = ", r,width,clipa,clipb,xoff,yoff
         mod(r,width,clipa,clipb,xoff,yoff,1,1.)
         image = N.sum(mod.transform(mod.rho),axis=-1)
+        
 #        print "image: ", image
 #        print "(image == 0).all() ", (image == 0).all()
 #        print "data2d: ", data2d
@@ -581,6 +624,8 @@ def fit_S61_TNS_continuous(datafile='/home/robert/science/ownpapers/lbv-paper/da
     from collections import OrderedDict
     params = ('r','width','clipa','clipb','xoff','yoff')
     tracesdict = OrderedDict([(par,M.trace(par).gettrace()) for par in params])
+#    return M, tracesdict
+
     print "BEFORE: tracesdict['r'].min(), tracesdict['r'].max() = ", tracesdict['r'].min(), tracesdict['r'].max()
     chi2red_trace, idx, chi2red_min = get_logp_trace(data2d,sig2d,tracesdict,mod)
 
@@ -662,6 +707,7 @@ def get_logp_trace(data2d,sig2d,tracesdict,mod):
         args = [traces[k][j] for k in xrange(nt)]
         args = tuple(args + [1.,1.])  # CDDC
 
+        print "In get_logp_trace; args = ", args
         mod(*args)
         image = N.sum(mod.transform(mod.rho),axis=-1)
         image2d = get_scale(image,data2d,sig2d)

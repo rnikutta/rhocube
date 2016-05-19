@@ -84,8 +84,8 @@ class TruncatedNormalShell(Cube):
         # upper cut clipb can be as low as r
         # upper cub clipb can be in principle larger than unity (but we'll default to 1.0)
         # width must be a positive number
-        assert (0. < self.clipa < self.r < self.clipb)  # radial distance relations that must hold: 0. <= clipa < r < clipb [<= 1.]
-        assert (self.width > 0.)
+        assert (0. < self.clipa < self.r < self.clipb), "self.clipa = %.3f, self.r = %.3f, self.clipb = %.3f" % (self.clipa,self.r,self.clipb)  # radial distance relations that must hold: 0. <= clipa < r < clipb [<= 1.]
+        assert (self.width > 0.), "self.width = %.3f" % self.width
 
 
     def get_rho(self):
