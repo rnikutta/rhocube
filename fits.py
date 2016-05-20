@@ -142,7 +142,6 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     
     #    image2d_best, cube_best, scale_best, theta_best = S61_get_best_model(data,data2d,sig2d,tracesdict,chi2trace)
     mod = models.TruncatedNormalShell(data.npix,transform=Quad())
-    image2d_best_med, cube_best_med, scale_best_med, theta_best_med = S61_get_best_model(data,sig,tracesdict,chi2trace,mod,theta=medians[:-1]+[1,1])
     image2d_best_map, cube_best_map, scale_best_map, theta_best_map = S61_get_best_model(data,sig,tracesdict,chi2trace,mod,theta=theta_map[:-1]+[1,1])
 
     vars = ['r','width','clipa','clipb','Mion']
@@ -167,7 +166,7 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
 #latex        r'\sansmath'               # <- tricky! -- gotta actually tell tex to use!
 #latex    ] 
 
-    f, axes = p.subplots(3, 3, figsize=(8, 7), sharex=False, sharey=False)#,subplot_kw={'aspect':'auto'})
+    f, axes = p.subplots(2, 4, figsize=(12, 6), sharex=False, sharey=False)#,subplot_kw={'aspect':'auto'})
     lw = 2.
     al = 0.4
 
@@ -223,48 +222,14 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
     ax10.set_yticklabels(ticklabels)
 
 
-    # IMAGE MED MODEL
-    ax20 = axes[2,0]
-    ax20.imshow(image2d_best_med,origin='lower',extent=extent,cmap=cmap,interpolation='none',norm=mpl.colors.Normalize(data2d.min(),data2d.max()))
-
-    center = (theta_best_med[4],theta_best_med[5])
-    circ1 = p.Circle(center,theta_best_med[0],ec='k',fc='none',ls='solid',lw=0.7,alpha=0.5)
-    circ2a = p.Circle(center,theta_best_med[0]+theta_best_med[1],ec='k',fc='none',ls='dashed',lw=0.7,alpha=0.5)
-    if theta_best_med[0]-theta_best_med[1] > 0:
-        circ2b = p.Circle(center,theta_best_med[0]-theta_best_med[1],ec='k',fc='none',ls='dashed',lw=0.7,alpha=0.5)
-    else:
-        circ2b = None
-        
-    circ3 = p.Circle(center,theta_best_med[3],ec='k',fc='none',ls='dotted',lw=0.7,alpha=0.5)
-    ax20.add_patch(circ1)
-    ax20.add_patch(circ2a)
-    if circ2b is not None:
-        ax20.add_patch(circ2b)
-
-    ax20.add_patch(circ3)
-    ax20.set_xticks(ticks)
-    ax20.set_xticklabels(ticklabels)
-    ax20.set_yticks(ticks)
-    ax20.set_yticklabels(ticklabels)
-
-
-    ax20.text(0.04,0.9,'MEDIAN MODEL',ha='left',transform=ax20.transAxes,color='k')
-    ax20.text(0.97,0.9,'(2)',ha='right',transform=ax20.transAxes,color='k')
-    ax20.set_xlabel('x (pc)')
-    ax20.set_ylabel('y (pc)')
-    ax20.set_xticks(ticks)
-    ax20.set_xticklabels(ticklabels)
-    ax20.set_yticks(ticks)
-    ax20.set_yticklabels(ticklabels)
-
     
-    axorder = [(0,1),(0,2),(1,1),(1,2),(2,1)]
+    axorder = [(0,1),(1,1),(0,2),(1,2),(0,3)]
     
     for j,jax in enumerate(axorder):
         print j, jax
 
         ax = axes[jax]
-        ax.text(0.97,0.9,'(%d)' % (j+3),ha='right',transform=ax.transAxes,color='k')
+        ax.text(0.97,0.9,'(%d)' % (j+2),ha='right',transform=ax.transAxes,color='k')
         var = vars[j]
         sample = df[var]
         bestval = sample[idx]
@@ -283,18 +248,10 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
         dashes = [6,3,6,3] # 10 points on, 5 off, 100 on, 5 off
         line.set_dashes(dashes)
 
-        if j == 4:
-            median_model_mass = get_Mion(data,cube_best_med,scale_best_med)
-            print "median_model_mass = ", median_model_mass
-            line = ax.axvline(median_model_mass,ls='-.',lw=lw,color='r',label='median model',alpha=0.8)
-            dashes = [8, 2, 2, 2] # 10 points on, 5 off, 100 on, 5 off
-            line.set_dashes(dashes)
-
-            
-        if j in (0,2,4):
-            ax.set_ylabel('margin. posteriors')
-        if j == 4:
-            leg = ax.legend(loc='center',bbox_to_anchor=(1.6,0.5),frameon=True)
+        if j in (0,1):
+            ax.set_ylabel('marginalized posteriors')
+        if j == 3:
+            leg = ax.legend(loc='center',bbox_to_anchor=(1.65,0.5),frameon=True)
             leg.legendPatch.set_alpha(0.7)
             leg.get_frame().set_edgecolor('0.3')
 
@@ -313,7 +270,7 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace):
         
     axes[-1, -1].axis('off')
         
-    f.subplots_adjust(left=0.05,right=0.98,top=0.96,bottom=0.1,hspace=0.4,wspace=0.1)
+    f.subplots_adjust(left=0.06,right=0.98,top=0.96,bottom=0.1,hspace=0.3,wspace=0.2)
 
     f.savefig('S61_posteriors_MAPMEDmodels.pdf')
 
