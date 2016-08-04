@@ -735,7 +735,8 @@ class ConstantDensityShell(Cube):
 
     # supply X,Y,Z to init instead of the param values. SUpply the param values instead to call (which may use update)
 
-    def __init__(self,npix,paramnames,transform=None,buildkdtree=False,computeR=True):
+#    def __init__(self,npix,paramnames,transform=None,buildkdtree=False,computeR=True):
+    def __init__(self,npix,transform=None,buildkdtree=False,computeR=True):
         
         """Truncated Normal Shell
 
@@ -767,8 +768,8 @@ class ConstantDensityShell(Cube):
 
         """
 
-        Cube.__init__(self,npix,paramnames,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
-
+#        Cube.__init__(self,npix,paramnames,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
+        Cube.__init__(self,npix,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
         
 #    def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1,smooth=1.):
     def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1,smooth=1.):
