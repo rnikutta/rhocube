@@ -816,6 +816,93 @@ class ConstantDensityShell(Cube):
         self.rho[co] = 1.
 
 
+class PowerLawShell(Cube):
+
+    def __init__(self,npix,transform=None,buildkdtree=False,computeR=True):
+        
+        """Truncated Normal Shell
+
+        A spherical shell with radius 'r', and Gaussian density
+        fall-off from r. The width of the Normal is 'width'. The PDF
+        of the Normal is truncated at 'clip' values.
+        
+        Parameters:
+        -----------
+        rin : float
+           Radius at which the shell is centered, in fractions of
+           unity, i.e. between 0 and 1.
+
+        width : float
+           Thickness of the shell, in same units as r.
+
+        xoff, yoff : floats
+           x and y offsets of the shell center from (0,0). Positive
+           values are to the right and up, negative to the left and
+           down. In units if unity (remember that the image is within
+           [-1,1]. Defaults: xoff = yoff = 0.
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one component, and wish to distribute different
+           amounts of mass inside each one. Default: weight=1.
+
+        """
+
+#        Cube.__init__(self,npix,paramnames,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
+        Cube.__init__(self,npix,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
+        
+#    def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1,smooth=1.):
+    def __call__(self,rin,rout,exponent=-1.,xoff=0.,yoff=0.,weight=1,smooth=1.):
+
+        """Return density rho at (x,y,z)"""
+
+        self.rin = rin
+        self.rout = rout
+        self.exponent = exponent
+
+        # helper arrays for finding the edges of the shell in get_rho()
+        self.Rin = self.rin * N.ones(self.X.shape)
+        self.Rout = self.rout * N.ones(self.X.shape)
+
+        self.xoff = xoff
+        self.yoff = yoff
+        self.weight = weight
+
+        self.sanity()
+
+        self.get_rho()  # get_rho should set self.rho (3D)
+        self.shift()
+
+#        self.normalize()
+
+        return self.rho
+
+
+    def sanity(self):
+
+        """Sanity checks for constant density-edge shell.
+        """
+
+        assert (0. < self.rin < self.rout)  # this automatically asserts that the shell thickness is finite and positive
+
+
+    def get_rho(self):
+
+        """Compute rho(x,y,z) in every voxel.
+        """
+
+#        print "self.exponent: ", self.exponent
+
+        self.rho = self.R**self.exponent
+#        r = get_r((self.X,self.Y,self.Z),mode=2)  # mode=1,2 are fast, 3,4are slow
+        co = ((self.R >= self.rin) & (self.R <= self.rout)) | N.isclose(self.R,self.Rout) | N.isclose(self.R,self.Rin)  # isclose also captures pixels at the very edge of the shell
+#        self.set_rho(val=0.)  # default is 0.
+#        self.rho[co] = 1.
+        self.rho[~co] = 0.
+
+
 
 
         

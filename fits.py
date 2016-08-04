@@ -43,7 +43,7 @@ import pylab as p
 #GOOD    return AUX
 
 
-def get_ne_cube(data,sig,tracesdict,chi2trace,outfits=None):
+def get_ne_cube(data,sig,tracesdict,chi2trace,modeltype,outfits=None):
 
     pixelscale = (data.px2pc*data.npix/2.)
     
@@ -60,16 +60,14 @@ def get_ne_cube(data,sig,tracesdict,chi2trace,outfits=None):
 #    bestvals = bestvals + [1,1.]
 
     # set up model
-    mod = models.TruncatedNormalShell(data.npix,transform=Quad())
-
+    modinstance = getattr(models,modeltype)
+    mod = modinstance(data.npix,transform=Quad())  # CDS
+    
     # call it with best values
     mod(*bestvals)
     image = N.sum(mod.transform(mod.rho),axis=-1)
     image2d, dummy, scale = get_scale(image,data.data2d,sig.data2d, returnall=True)
 
-#    cube = rhocube.Cube(data.npix,transform=Quad())
-#    image2dA, image2d_nonmaskedA, cubeA, scaleA = modelfunc_cddc(cube,data.data2d,sig.data2d,*bestvals,returnall=True)
-#    cubeA.transform._inverse(scaleA)
     
 #    Sne = cube.transform._inverse(scaleA)
     Sne = mod.transform._inverse(scale)
@@ -210,7 +208,8 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace,vars,xlabels,modeltype
     ax10.imshow(image2d_best_map,origin='lower',extent=extent,cmap=cmap,interpolation='none')
 
     # TODO: automate this
-    if modeltype == 'ConstantDensityShell':
+#    if modeltype == 'ConstantDensityShell':
+    if modeltype in ('ConstantDensityShell','PowerLawShell'):
         # use this for CDS
         center = (theta_best_map[2],theta_best_map[3])
         circ1 = p.Circle(center,theta_best_map[0],ec='k',fc='none',ls='solid',lw=0.7,alpha=0.5)
@@ -254,7 +253,8 @@ def plot_MAP_posteriors_kde(data,sig,tracesdict,chi2trace,vars,xlabels,modeltype
     # TODO: try to automate this
     if modeltype == 'TruncatedNormalShell':
         axorder = [(0,1),(1,1),(0,2),(1,2),(0,3)]
-    elif modeltype == 'ConstantDensityShell':
+#    elif modeltype == 'ConstantDensityShell':
+    elif modeltype in ('ConstantDensityShell','PowerLawShell'):
         axorder = [(0,1),(1,1),(0,2)]
     
     for j,jax in enumerate(axorder):
@@ -649,6 +649,114 @@ def fit_S61_CDS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/
     # MCMC model
     modely = pymc.Normal('modely',mu=modeled_data,tau=1./sig2d**2,value=data2d,observed=True)
     model = pymc.Model([rin,rout,xoff,yoff,modely])
+    M = pymc.MCMC(model)
+
+    
+    # adaptive stepping methods, can lead to better convergence of MCMC chains
+    for par in (rin,rout,xoff,yoff):
+        M.use_step_method(pymc.AdaptiveMetropolis,[par],delay=100,shrink_if_necessary=True,greedy=False)
+
+    # run the MCMC sampling
+    M.sample(iter=nsample,burn=nburn,thin=1)
+
+    # convenience
+    from collections import OrderedDict
+    params = ('rin','rout','xoff','yoff')
+    tracesdict = OrderedDict([(par,M.trace(par).gettrace()) for par in params])
+
+    chi2red_trace, idx, chi2red_min = get_logp_trace(data2d,sig2d,tracesdict,mod)
+
+    if return_Mion is True:
+        print "Computing Mion"
+        Mion_trace = get_Mion_trace(data,sig2d,tracesdict,mod)
+        tracesdict['Mion'] = Mion_trace
+
+#    if physical_units is True:
+    if physical_units is not None:
+        print "Converting traces to physical units"
+        for k,v in tracesdict.items():
+            if k in params:
+                print k
+                v = v * factor  # now in pc
+                tracesdict[k] = v
+
+    # pickling means to "save a state" in Python; the pickle file will
+    # contain all we need if we want to run the analysis, plotting,
+    # etc. later/again.
+    if pickle is not None:
+        print "Pickling results to file %s" % pickle
+        dopickle(pickle,(data,sig,tracesdict,chi2red_trace))
+
+
+    # return these for the plotting routine
+    vars = ['rin','rout','Mion']  # CDS
+    xlabels = [r'inner radius (pc)',r'outer radius (pc)',r'M$_{\rm ion}$ (M$_{\odot}$)']  #CDS
+    
+    return data, data2d, sig, sig2d, model, M, tracesdict, chi2red_trace, vars, xlabels, modeltype
+
+
+def fit_S61_PLS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/em_map_s61-8GHz.fits',\
+                sigmafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/err_em_map_s61-8GHz.fits',\
+                nsample=500,nburn=100,physical_units=True,return_Mion=True,pickle=None,\
+                modeltype='PowerLawShell',exponent=-3.):
+
+    # get image, flatten, normalize
+    print "Reading data file"
+    data = Data(fitsfile=datafile)
+    data2d = data.data2d.copy()
+    print "data.npix = ", data.npix
+
+    # get uncertainties images, flatten, normalize same as image
+    print "Reading uncertainties file"
+    sig = Data(sigmafile)
+    sig2d = sig.data2d.copy()  # CAUTION!
+
+    co = (data.data2d.mask == False)
+    nmeas = (data.data2d.mask[co]).size  # number of non-masked pixels = number of data points
+    
+    # model
+    print "Defining model"
+    npix = data.npix
+    npix2 = npix/2
+    px = 2/float(npix)
+
+    # factor to translate from parsecs to pixels on cube with [-1,1] ranges
+    factor = (data.px2pc*data.npix/2.)
+             
+    # ///// SET UP PRIORS
+    eps = 0.001  # to avoid numerical armageddons
+    rin = pymc.Uniform('rin',0.05/factor,0.15/factor)  # r=mu of the Gaussian; values are in parsec, factor converts them to unit hypercube
+    rout = pymc.Uniform('rout',rin+eps,(0.45/factor))#,value=0.05)  # width=sigma of the Gaussian
+    # offsets drawn from narrow Gaussian, truncated at [-2,+2] pixels from (x,y)=(0,0)
+    xoff = pymc.TruncatedNormal('xoff',0,1./0.02**2,-0.02,0.02)
+    yoff = pymc.TruncatedNormal('yoff',0,1./0.02**2,-0.02,0.02)
+
+    @pymc.deterministic(trace=True)
+    def expo():
+        return exponent
+    
+    # ///// END OF SETTING UP PRIORS
+
+    # model: truncated Gaussian shell
+#    mod = models.ConstantDensityShell(npix,transform=Quad())  # Quad() will square ne before integration
+
+    modinstance = getattr(models,modeltype)
+    mod = modinstance(data.npix,transform=Quad())  # CDS
+    
+    # MCMC sampling happens inside here
+    @pymc.deterministic()
+    def modeled_data(rin=rin,rout=rout,expo=expo,xoff=xoff,yoff=yoff):
+
+        mod(rin,rout,expo,xoff,yoff,1,1.)
+        image = N.sum(mod.transform(mod.rho),axis=-1)
+        image2d, dummy, scale = get_scale(image,data2d,sig2d, returnall=True)
+
+        return image2d
+   
+    
+    # MCMC model
+    modely = pymc.Normal('modely',mu=modeled_data,tau=1./sig2d**2,value=data2d,observed=True)
+    model = pymc.Model([rin,rout,expo,xoff,yoff,modely])
     M = pymc.MCMC(model)
 
     
