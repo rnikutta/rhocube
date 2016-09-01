@@ -854,13 +854,14 @@ class PowerLawShell(Cube):
         Cube.__init__(self,npix,transform=transform,buildkdtree=buildkdtree,computeR=computeR)
         
 #    def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1,smooth=1.):
-    def __call__(self,rin,rout,exponent=-1.,xoff=0.,yoff=0.,weight=1,smooth=1.):
+#G    def __call__(self,rin,rout,exponent=-1.,xoff=0.,yoff=0.,weight=1,smooth=1.):
+    def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=1,smooth=1.):
 
         """Return density rho at (x,y,z)"""
 
         self.rin = rin
         self.rout = rout
-        self.exponent = exponent
+        self.exponent = -1.
 
         # helper arrays for finding the edges of the shell in get_rho()
         self.Rin = self.rin * N.ones(self.X.shape)

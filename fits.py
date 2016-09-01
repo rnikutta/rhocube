@@ -698,7 +698,7 @@ def fit_S61_CDS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/
 def fit_S61_PLS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/em_map_s61-8GHz.fits',\
                 sigmafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/err_em_map_s61-8GHz.fits',\
                 nsample=500,nburn=100,physical_units=True,return_Mion=True,pickle=None,\
-                modeltype='PowerLawShell',exponent=-3.):
+                modeltype='PowerLawShell'):
 
     # get image, flatten, normalize
     print "Reading data file"
@@ -731,9 +731,9 @@ def fit_S61_PLS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/
     xoff = pymc.TruncatedNormal('xoff',0,1./0.02**2,-0.02,0.02)
     yoff = pymc.TruncatedNormal('yoff',0,1./0.02**2,-0.02,0.02)
 
-    @pymc.deterministic(trace=True)
-    def expo():
-        return exponent
+#    @pymc.deterministic(trace=True)
+#    def expo():
+#        return exponent
     
     # ///// END OF SETTING UP PRIORS
 
@@ -745,9 +745,9 @@ def fit_S61_PLS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/
     
     # MCMC sampling happens inside here
     @pymc.deterministic()
-    def modeled_data(rin=rin,rout=rout,expo=expo,xoff=xoff,yoff=yoff):
+    def modeled_data(rin=rin,rout=rout,xoff=xoff,yoff=yoff):
 
-        mod(rin,rout,expo,xoff,yoff,1,1.)
+        mod(rin,rout,xoff,yoff,1,1.)
         image = N.sum(mod.transform(mod.rho),axis=-1)
         image2d, dummy, scale = get_scale(image,data2d,sig2d, returnall=True)
 
@@ -756,7 +756,7 @@ def fit_S61_PLS(datafile='/home/robert/science/ownpapers/lbv-paper/data-em-maps/
     
     # MCMC model
     modely = pymc.Normal('modely',mu=modeled_data,tau=1./sig2d**2,value=data2d,observed=True)
-    model = pymc.Model([rin,rout,expo,xoff,yoff,modely])
+    model = pymc.Model([rin,rout,xoff,yoff,modely])
     M = pymc.MCMC(model)
 
     
