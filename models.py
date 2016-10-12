@@ -1,7 +1,7 @@
 """Model classes for 3D density distribution."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2016-10-10"
+__version__ = "2016-10-11"
 
 # imports
 from rhocube import Cube
@@ -24,7 +24,7 @@ def spiral3D(h,Rbase,nturns,rtube,envelope='dualcone'):
         if envelope == 'dualcone':
             zprogression = z*(Rbase/h)
         elif envelope == 'cylinder':
-            zprogression = Rbase/h
+            zprogression = Rbase
         else:
             raise Exception, "Invalid value for 'envelope'. Must be either of: ['dualcone','cylinder']."
         
