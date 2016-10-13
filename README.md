@@ -12,4 +12,6 @@ and [models.py](./models.py)).
 
 **License:** BSD 3-clause, please see [LICENSE](./LICENSE) file
 
-**Version:** 2016-10-10
+**Version:** 2016-10-12
+
+[![DOI](https://zenodo.org/badge/34539666.svg)](https://zenodo.org/badge/latestdoi/34539666)
