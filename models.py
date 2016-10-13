@@ -1,7 +1,7 @@
 """Model classes for 3D density distribution."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2016-10-11"
+__version__ = "2016-10-12"
 
 # imports
 from rhocube import Cube
@@ -39,46 +39,6 @@ class Helix3D(Cube):
     def __init__(self,npix,transform=None,smoothing=1.,snakefunc=spiral3D,envelope='dualcone'):
         
         """Helical tube winding along a dual cone, with constant density inside the tube.
-
-
-        Scratch:
-
-        ROTATE
-        ndimage.rotate() uses angles in degrees.
-        Rotation of 3D array cube.rho by angle A in the plane defined by axes:
-
-        axes=(0,2) --> our x axis
-        axes=(0,1) --> our z axis
-        axes=(1,2) --> our y axis
-
-        So indexing seems to be (y,x,z)
-
-        SHIFT
-        ndimage.shift() works in pixel units.
-
-        
-        Parameters:
-        -----------
-        rin : float
-           Radius at which the shell is centered, in fractions of
-           unity, i.e. between 0 and 1.
-
-        width : float
-           Thickness of the shell, in same units as r.
-
-        xoff, yoff : floats
-           x and y offsets of the shell center from (0,0). Positive
-           values are to the right and up, negative to the left and
-           down. In units if unity (remember that the image is within
-           [-1,1]. Defaults: xoff = yoff = 0.
-
-        weight : float
-           Normalize the total (relative) mass contained in the shell
-           to this value. The total mass is the sum of rho over all
-           pixels (in 3D). This is useful if you e.g. want to have
-           more than one component, and wish to distribute different
-           amounts of mass inside each one. Default: weight=1.
-
         """
 
         Cube.__init__(self,npix,transform=transform,smoothing=smoothing,buildkdtree=True)
@@ -147,11 +107,6 @@ class PowerLawShell(Cube):
     def __init__(self,npix,transform=None,smoothing=1.,exponent=-1.):
         
         """Power-law shell.
-
-        A spherical shell with inner and outer radii, and radial power-law density fall-off.
-
-        See __call__ doc string for shell parameters.
-
         """
         
         Cube.__init__(self,npix,transform=transform,smoothing=smoothing,buildkdtree=False,computeR=True)
@@ -161,19 +116,23 @@ class PowerLawShell(Cube):
         
     def __call__(self,rin,rout,xoff=0.,yoff=0.,weight=None):
 
-        """Return density rho at all voxels (x,y,z).
+        """A spherical shell with inner and outer radii, and radial power-law
+        density fall-off.
 
+        Parameters:
+        -----------
         rin : float
-           Radius at which the shell is centered, in fractions of
-           unity, i.e. between 0 and 1.
+           Inner radius of the shell, in fractions of unity,
+           i.e. between 0 and 1.
 
-        width : float
-           Thickness of the shell, in same units as r.
+        rout : float
+           Outer radius of the shell, in fractions of unity,
+           i.e. between 0 and 1.
 
         xoff, yoff : floats
            x and y offsets of the shell center from (0,0). Positive
            values are to the right and up, negative to the left and
-           down. In units if unity (remember that the image is within
+           down. In units if unity (the image is within
            [-1,1]. Defaults: xoff = yoff = 0.
 
         weight : float or None
@@ -225,6 +184,14 @@ class TruncatedNormalShell(Cube):
     def __init__(self,npix,transform=None,smoothing=1.):
         
         """Truncated Normal Shell
+        """
+
+        Cube.__init__(self,npix,transform=transform,smoothing=smoothing,buildkdtree=False,computeR=True)
+
+        
+    def __call__(self,r,width,clipa=0.,clipb=1.,xoff=0.,yoff=0.,weight=None):
+
+        """Return density rho at (x,y,z)
 
         A spherical shell with radius 'r', and Gaussian density
         fall-off from r. The width of the Normal is 'width'. The PDF
@@ -237,10 +204,14 @@ class TruncatedNormalShell(Cube):
            unity, i.e. between 0 and 1.
 
         width : float
-           Thickness of the shell, in same units as r.
+           Thickness of the Gaussian that makes up the shell, in same
+           units as r.
 
-        clip : 2-tuple of floats
-           Where to clip the Gaussian left and right. Default is (0,1).
+        clipa : float
+           Lower clip radius of the Gaussian. Default is 0.
+
+        clipb : float
+           Upper clip radius of the Gaussian. Default is 1.
 
         xoff, yoff : floats
            x and y offsets of the shell center from (0,0). Positive
@@ -256,13 +227,6 @@ class TruncatedNormalShell(Cube):
            amounts of mass inside each one.
 
         """
-
-        Cube.__init__(self,npix,transform=transform,smoothing=smoothing,buildkdtree=False,computeR=True)
-
-        
-    def __call__(self,r,width,clipa=0.,clipb=1.,xoff=0.,yoff=0.,weight=None):
-
-        """Return density rho at (x,y,z)"""
 
         self.r = r
         self.width = width
@@ -285,10 +249,10 @@ class TruncatedNormalShell(Cube):
         # CAREFUL ASSERTIONS
         # lower cut clipa must be smaller than r
         # lower cut clipa can be as small as zero
-        # upper cut clipb can be as low as r
+        # upper cut clipb must be greater than r
         # upper cub clipb can be in principle larger than unity (but we'll default to 1.0)
         # width must be a positive number
-        assert (0. < self.clipa < self.r < self.clipb)  # radial distance relations that must hold: 0. <= clipa < r < clipb [<= 1.]
+        assert (0. <= self.clipa < self.r < self.clipb)  # radial distance relations that must hold: 0. <= clipa < r < clipb [<= 1.]
         assert (self.width > 0.)
 
 
@@ -309,8 +273,8 @@ class TruncatedNormalShell(Cube):
 
         # Because of the non-standard way that Scipy defines
         # distributions, we compute the shape parameters for a
-        # truncated Normal, with mean mu, std-deviation sigma, and
-        # clipped left and right at clipa and clipb.
+        # truncated Normal, with mean mu, standard deviation sigma,
+        # and truncated left and right at clipa and clipb.
         mu, sig = self.r, self.width
         a, b = (self.clipa - mu) / sig, (self.clipb - mu) / sig
         rv = truncnorm(a, b, loc=mu, scale=sig)
@@ -319,21 +283,45 @@ class TruncatedNormalShell(Cube):
         return pdf
 
 
-
 class ConstantDensityTorus(Cube):
 
-
     def __init__(self,npix,transform=None,smoothing=1.):
-
-        """Torus as a ring with circular cross-section.
-        """        
 
         Cube.__init__(self,npix,transform=transform,smoothing=smoothing,buildkdtree=False,computeR=True)
 
 
     def __call__(self,r,rcross,xoff=0.,yoff=0.,tiltx=0.,tiltz=0,weight=1.):
 
-        """Return density rho at (x,y,z)"""
+        """Torus as a ring with circular cross-section.
+
+        Parameters:
+        -----------
+        r : float
+            Radius of the torus, in fractions of unity, i.e. between 0
+            and 1.
+
+        rcross : float
+            The radius of the torus cross-section (tube), in same
+            units as r.
+
+        xoff, yoff : floats
+            x and y offsets of the shell center from (0,0). Positive
+            values are to the right and up, negative to the left and
+            down. In units if unity (remember that the image is within
+            [-1,1]. Defaults: xoff = yoff = 0.
+        
+        tiltx, tiltz : floats
+            The rotation angles of the model about the x and z axes,
+            in degrees. Defaults are both 0 (= no rotation).
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one component, and wish to distribute different
+           amounts of mass inside each one.
+
+        """
 
         self.r = r
         self.rcross = rcross
@@ -373,7 +361,6 @@ class ConstantDensityTorus(Cube):
         X2 = self.X**2
         Z2 = self.Z**2
         co = (X2 + self.Y**2 + Z2 + r2 - self.rcross**2)**2 - 4 * r2 * (X2 + Z2) < 0
-#        co = (self.X**2 + self.Y**2 + self.Z**2 + r2 - self.rcross**2)**2 - 4 * r2 * (self.X**2 + self.Z**2) < 0
         
         self.set_rho(val=0.)  # default is 0.
         self.rho[co] = 1.
@@ -384,15 +371,42 @@ class ConstantDensityDualCone(Cube):
 
     def __init__(self,npix,transform=None,smoothing=1.):
         
-        """ConstantDensityDualCone
-        """
-
         Cube.__init__(self,npix,transform=transform,smoothing=1.,buildkdtree=False,computeR=True)
 
 
     def __call__(self,r,theta,tiltx=0.,tiltz=0,xoff=0.,yoff=0.,weight=None):
 
-        """Return density rho at (x,y,z)"""
+        """Dual cone (i.e. two cones touching at the central point, with
+        constant density inside.
+
+        Parameters:
+        -----------
+        r : float
+            Radius (or height) of one cone above the center point, in
+            fractions of unity, i.e. between 0 and 1.
+
+        theta : float
+            The opening angle (the angle covered by the cone), in
+            degrees.
+
+        tiltx, tiltz : floats
+            The rotation angles of the model about the x and z axes,
+            in degrees. Defaults are both 0 (= no rotation).
+
+        xoff, yoff : floats
+            x and y offsets of the shell center from (0,0). Positive
+            values are to the right and up, negative to the left and
+            down. In units if unity (remember that the image is within
+            [-1,1]. Defaults: xoff = yoff = 0.
+
+        weight : float
+           Normalize the total (relative) mass contained in the shell
+           to this value. The total mass is the sum of rho over all
+           pixels (in 3D). This is useful if you e.g. want to have
+           more than one component, and wish to distribute different
+           amounts of mass inside each one.
+
+        """
 
         self.r = r
         self.theta_deg = theta
@@ -436,4 +450,3 @@ class ConstantDensityDualCone(Cube):
         # set all occupied voxels to one
         self.set_rho(val=0.)  # default is 0.
         self.rho[coall] = 1.
-

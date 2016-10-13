@@ -1,13 +1,11 @@
 """Compute a model 3D density distribution, and 2D dz-integrated map."""
 
 __author__  = "Robert Nikutta, Claudia Agliozzo"
-__version__ = "2016-09-23"
-
+__version__ = "2016-10-12"
 
 # IMPORTS
 import numpy as N
 from scipy import spatial, ndimage
-from functools import partial
 
 
 # CLASSES
@@ -112,7 +110,6 @@ class GenericTransform:
         else:
             return None
 
-
         
 class Cube:
 
@@ -125,7 +122,6 @@ class Cube:
     a kdtree for density fields computed around parametric curves.
     """
 
-#    def __init__(self,npix,transform=None,normalize='none',smoothing=1.,buildkdtree=False,computeR=False):
     def __init__(self,npix,transform=None,smoothing=1.,buildkdtree=False,computeR=False):
 
         """Initialize a unit 3D cube of voxels.
@@ -133,35 +129,40 @@ class Cube:
         Parameters
         ----------
         npix : int
-            Number of cells along every dimension X,Y,Z. Must be odd
-            to ensure that there is a single central voxel. If npix
-            not odd, will be made odd by adding +1.
+            Number of cells along every dimension x,y,z. Must be odd
+            to ensure that there is a single central voxel. If npix is
+            not odd, it will be made odd by adding +1.
 
-        transform : class reference | None
-            If not None (default), transform is the name of a function
-            that will be applied to the resulting 3D density
-            distribution, and before any further computations. Several
-            built-in transform classes are provided,
-            e.g. PowerTransform() (see doc string there). If the class
-            also provides a _inverse() function, then the entire 3D
-            cube rho(x,y,z) with correct scaling can also be computed.
+        transform : class instance | None
+            If not None, transform is the instance of a class that
+            will be applied to the resulting 3D density distribution,
+            and before any further computations. Several built-in
+            transform classes are provided, e.g. PowerTransform() (see
+            doc string there). If the class also provides a _inverse()
+            function, then the entire 3D cube rho(x,y,z) with correct
+            scaling can also be computed. If None (the default), no
+            transform of rho will be performed.
 
         smoothing : float | None
             If a float, the value is the width (in standard
-            deviations) of a 3D Gaussian kernel that the resulting
-            rho(x,y,z) will be convolved with, resulting in a smoothed
-            3D density distribution. smoothing=1. is default and does
-            not alter the resulting structure significantly. If None,
-            no smoothing will be applied. Note that smoothing does
+            deviations) of a 3D Gaussian kernel that rho(x,y,z) will
+            be convolved with, resulting in a smoothed 3D density
+            distribution. smoothing=1. is default and does not alter
+            the resulting structure significantly. If None, no
+            smoothing will be applied. Note that smoothing does
             preserve the total \sum_i rho(x,y,z) where i runs over all
             voxels.
 
-        
-
-            
-
-        normalize : bool
-            See arg 'weight' in model __call__ func.
+        buildkdtree : bool
+            If True, a k-d tree of the voxel center positions in the
+            cube will be computed. This is very helpful in speeding up
+            computations of voxel proximity to some parametric curve
+            (some models make use of it, e.g. Helix3D). The cost of
+            building the tree is O(n log^2 n), i.e. it is a rather
+            expensive function of npix (npix=101 is safe on modern
+            PCs, npix=301 might be too expensive for most users to
+            wait for). Once build, subsequent lookups in the tree are
+            much faster. The default is False.
 
         """
 
@@ -196,8 +197,7 @@ class Cube:
         self.rho = self.set_rho(val=0.)
 
         self.smoothing = smoothing
-#        self.smooth()
-        
+
         
     def build_kdtree(self):
 
@@ -226,18 +226,14 @@ class Cube:
 
         Returns
         -------
-        Nothing.
-
-        Stores
-        ------
-        self.idx1d : array
+        idx1d : array
             1-dimensional array of idices corresponding to points
             found by the query.
 
-        self.dist : float
+        dist : float
             The actual distance from x to the closest found
-            neighbor. Only returned when r = 0, i.e. single-point
-            query.
+            neighbor. Only meaningful when r = 0, i.e. single-point
+            query, otherwise dist=None is returned.
 
         """
 
@@ -295,12 +291,29 @@ class Cube:
 
 
     def smooth(self):
+
+        """Smooth 3D density array self.rho by convolving with a Gaussian
+        kernel of width self.smoothing (measured in std deviations)."""
         
         if hasattr(self,'smoothing') and self.smoothing is not None:
             self.rho = ndimage.gaussian_filter(self.rho,sigma=self.smoothing)
             
 
     def apply_rho_ops(self):
+
+        """Convenience function to apply all post rho-comuptatations common to
+        all models.
+
+        Specifically, the operations, in this order, are:
+            transform(rho)   # if any 'transform' class was passed
+            shift            # if xoff and/or yoff are not zero
+            rotate3D         # if any of the tilt angles tiltx, tilty, tiltz are not zero
+            smooth           # if 'smoothing' parameter is not None
+            normalize        # if 'weight' parameter is not None
+
+        After all these operations, the function also computes the
+        newest z-integrated image, rho_surface(x,y) = \int dx rho(x,y,z)
+        """
 
         if self.transform is not None:
             self.rho = self.transform(self.rho)  # apply transform() if not None
@@ -380,5 +393,3 @@ def get_r(coords,mode=2):
         """Numpy's sum() is slow, if not paying attention to RAM layout."""
 
         return N.sqrt(N.sum(N.power(coords,2),axis=0))
-
-
