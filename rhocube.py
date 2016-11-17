@@ -327,7 +327,8 @@ class Cube:
         if hasattr(self,'weight') and self.weight is not None:
             self.normalize()
 
-        self.image = N.sum(self.transform(self.rho),axis=-1)
+        # compute image by summing rho(x,y,z) over z
+        self.image = N.sum(self.rho,axis=-1)
         
 
 # FUNCTIONS
