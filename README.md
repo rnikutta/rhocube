@@ -13,7 +13,7 @@ images of LBV shells, supernova remnants, and many more.
 
 Below, a gallery of some geometries possible with `rhocube`. Depicted are 2D projections of the 3D models.
 
-![Gallery of come RHOCUBE models](https://raw.githubusercontent.com/rnikutta/rhocube/master/rhocube_gallery.png)
+[[https://github.com/rnikutta/rhocube/blob/master/rhocube_gallery.png|alt="Gallery of come RHOCUBE models"]]
 
 Many model geometries provided (see [rhocube.ipynb](./rhocube.ipynb)
 and [models.py](./models.py)).
