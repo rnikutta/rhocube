@@ -9,7 +9,7 @@ images of LBV shells, supernova remnants, and many more.
 
 **License:** BSD 3-clause, please see [LICENSE](./LICENSE) file
 
-**Version:** 2016-11-17
+**Version:** 2016-11-18
 
 Below, a gallery of some geometries possible with `rhocube`. Depicted are 2D projections of the 3D models.
 
@@ -27,7 +27,7 @@ and [models.py](./models.py)).
 *Agliozzo et al. 2016a, "New ATCA, ALMA and VISIR observations of the
 candidate LBV SK -67266 (S61): the nebular mass from modelling 3D
 density distributions", MNRAS MN-16-3575-MJ.*
-| [MNRAS](http://mnras.oxfordjournals.org/content/early/2016/11/18/FINALLINKHERE)
+| [MNRAS](http://mnras.oxfordjournals.org/content/early/2016/11/17/mnras.stw2986.abstract?keytype=ref&ijkey=BD9i9T5p2NxQzfc)
 | [astro-ph](https://arxiv.org/abs/1611.05259)
 
 *Agliozzo et al. 2016b (submitted), The luminous blue variable RMC127:
