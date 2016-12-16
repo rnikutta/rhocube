@@ -9,7 +9,7 @@ images of LBV shells, supernova remnants, and many more.
 
 **License:** BSD 3-clause, please see [LICENSE](./LICENSE) file
 
-**Version:** 2016-11-18
+**Version:** 2016-12-16
 
 Below, a gallery of some geometries possible with `rhocube`. Depicted are 2D projections of the 3D models.
 
@@ -36,4 +36,4 @@ density distributions", MNRAS MN-16-3575-MJ.*
 
 *Agliozzo et al. 2016b (submitted), The luminous blue variable RMC127:
 A fast rotator with a collimated mass-loss and an axial precession
-motion as seen with ALMA, ATCA and MAGELLAN", ApJ
+motion as seen with ALMA, ATCA and MAGELLAN", ApJ*
