@@ -22,7 +22,7 @@ and [models.py](./models.py)).
 
 [![DOI](https://zenodo.org/badge/34539666.svg)](https://zenodo.org/badge/latestdoi/34539666)
 
-**`rhocube` on the *Astrophysics Source Code Library*
+**`rhocube` on the *Astrophysics Source Code Library* **
 
 [![ASCL](https://img.shields.io/badge/ascl-1611.009-blue.svg?colorB=262255)](http://ascl.net/1611.009)
 
